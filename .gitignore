@@ -1,1 +1,6 @@
 target/
+mvnp.sh
+.settings
+.project
+.classpath
+.gitignore
