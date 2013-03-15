@@ -1,6 +1,7 @@
 package us.codecraft.sqljava;
 
-import java.util.List;
+import us.codecraft.sqljava.common.Mapper;
+
 
 /**
  * @author yihua.huang@dianping.com
@@ -10,6 +11,6 @@ public interface Join<U, A, B> {
 
 	public Join<U, A, B> map(Mapper<U, B> mapper);
 
-	public List<U> on(String exp);
+	public Table<U> on(String exp);
 
 }

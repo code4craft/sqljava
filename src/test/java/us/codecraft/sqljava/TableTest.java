@@ -1,7 +1,6 @@
 package us.codecraft.sqljava;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.Test;
 
@@ -12,7 +11,7 @@ import org.junit.Test;
 @SuppressWarnings("unused")
 public class TableTest {
 
-	private static class A {
+	public static class A {
 		private int aid;
 		private String name;
 		private String bame;
@@ -43,7 +42,7 @@ public class TableTest {
 
 	}
 
-	private static class B {
+	public static class B {
 		private int bid;
 		private String bname;
 
@@ -71,13 +70,13 @@ public class TableTest {
 		Table<A> tableA = Tables.newTable(collectionA);
 		ArrayList<B> collectionB = new ArrayList<B>();
 		Table<B> tableB = Tables.newTable(collectionB);
-		List<A> on = tableA.<A, B> join(tableB)
-				.map(new Mapper<A, TableTest.B>() {
-
-					public void map(A a, B object) {
-						a.setBame(object.getBname());
-						return;
-					}
-				}).on("aid=bid");
+		// List<A> on = tableA.<A, B> join(tableB)
+		// .map(new Mapper<A, TableTest.B>() {
+		//
+		// public void map(A a, B object) {
+		// a.setBame(object.getBname());
+		// return;
+		// }
+		// }).on("aid=bid");
 	}
 }

@@ -2,6 +2,8 @@ package us.codecraft.sqljava;
 
 import java.util.List;
 
+import us.codecraft.sqljava.common.Mapper;
+
 /**
  * @author yihua.huang@dianping.com
  * @date 2013-1-6
@@ -10,15 +12,13 @@ public interface Table<T> {
 
 	public Table<T> index(String field);
 
-	public List<T> orderBy(String field);
-
-	public List<T> where(String exp);
+	public Table<T> orderBy(String field);
 
 	public Select<T> select();
-
-	public int insert(T t, String exp);
 
 	public <U, V> Join<U, T, V> join(Table<V> table);
 
 	public <U, V> Join<U, T, V> map(Mapper<U, T> mapper);
+
+	public List<T> toList();
 }

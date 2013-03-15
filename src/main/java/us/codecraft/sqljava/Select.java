@@ -1,6 +1,5 @@
 package us.codecraft.sqljava;
 
-import java.util.List;
 
 /**
  * @author yihua.huang@dianping.com
@@ -18,6 +17,6 @@ public interface Select<T> {
 
 	public Select<T> limit(int limit, int offset);
 
-	public List<T> commit();
+	public Table<T> commit();
 
 }
