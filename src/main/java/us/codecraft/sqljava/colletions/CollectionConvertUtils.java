@@ -8,10 +8,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+
 import us.codecraft.sqljava.common.ClassUtils;
 import us.codecraft.sqljava.common.ConvertMapper;
 import us.codecraft.sqljava.common.FieldGetter;
 import us.codecraft.sqljava.common.Mapper;
+import us.codecraft.sqljava.common.ReflectFieldGetter;
 
 /**
  * Some collection utilities used for simplify collection converts.
@@ -38,13 +41,9 @@ public class CollectionConvertUtils {
 		}
 		Method getterMethod = ClassUtils.getGetterMethod(rawCollection
 				.iterator().next().getClass(), field);
-		List<V> resultColletion = new ArrayList<V>();
-		for (T rawElement : rawCollection) {
-			V resultElemet = ClassUtils.<V, T> invokeGetter(rawElement,
-					getterMethod);
-			resultColletion.add(resultElemet);
-		}
-		return resultColletion;
+		ReflectFieldGetter<T, V> fieldGetter = new ReflectFieldGetter<T, V>(
+				getterMethod);
+		return filter(rawCollection, fieldGetter);
 	}
 
 	/**
@@ -84,13 +83,9 @@ public class CollectionConvertUtils {
 		}
 		Method getterMethod = ClassUtils.getGetterMethod(rawCollection
 				.iterator().next().getClass(), field);
-		Map<K, T> resultMap = new HashMap<K, T>();
-		for (T rawElement : rawCollection) {
-			K resultElemet = ClassUtils.<K, T> invokeGetter(rawElement,
-					getterMethod);
-			resultMap.put(resultElemet, rawElement);
-		}
-		return resultMap;
+		ReflectFieldGetter<T, K> fieldGetter = new ReflectFieldGetter<T, K>(
+				getterMethod);
+		return filterMap(rawCollection, fieldGetter);
 	}
 
 	/**
@@ -148,6 +143,79 @@ public class CollectionConvertUtils {
 	}
 
 	/**
+	 * Like inner join operation in sql.Using reflection in Java (to avoid
+	 * explosion of class). It may cause slightly performance drawback and is
+	 * not suggested to use in high-performance-requiring circumstance.
+	 * 
+	 * @param listA
+	 * @param listB
+	 * @param fieldGetterA
+	 * @param fieldGetterB
+	 * @param mapper
+	 */
+	public static <A, B, K> List<A> innerJoin(List<A> listA, List<B> listB,
+			String exp, Mapper<B, A> mapper) {
+		return join0(listA, listB, exp, mapper, false);
+	}
+
+	/**
+	 * Like inner join operation in sql.Using reflection in Java (to avoid
+	 * explosion of class). It may cause slightly performance drawback and is
+	 * not suggested to use in high-performance-requiring circumstance.
+	 * 
+	 * @param listA
+	 * @param listB
+	 * @param fieldGetterA
+	 * @param fieldGetterB
+	 * @param mapper
+	 */
+	public static <A, B, K> List<A> leftJoin(List<A> listA, List<B> listB,
+			String exp, Mapper<B, A> mapper) {
+		return join0(listA, listB, exp, mapper, true);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <A, B, K> List<A> join0(List<A> listA, List<B> listB,
+			String exp, Mapper<B, A> mapper, boolean leftJoin) {
+		// XXX: a simple implement. May be sometimes use a parser to rewrite?
+		if (StringUtils.isBlank(exp)) {
+			throw new IllegalArgumentException("exp should not be empty");
+		}
+		String[] items = exp.split("=");
+		if (items == null || items.length != 2) {
+			throw new IllegalArgumentException(
+					"exp incorrect, format a.xx=b.xx");
+		}
+		if (listA == null || listA.size() == 0) {
+			return Collections.emptyList();
+		}
+		FieldGetter<A, K> fieldGetterA = (FieldGetter<A, K>) generateGetter(
+				listA.get(0).getClass(), items[0]);
+		if (listB.size() == 0) {
+			if (leftJoin) {
+				return new ArrayList<A>(listA);
+			} else {
+				return Collections.<A> emptyList();
+			}
+		}
+		FieldGetter<B, K> fieldGetterB = (FieldGetter<B, K>) generateGetter(
+				listB.get(0).getClass(), items[1]);
+		return join0(listA, fieldGetterA, listB, fieldGetterB, mapper, leftJoin);
+	}
+
+	private static <T, V> FieldGetter<T, V> generateGetter(Class<T> clazz,
+			String exp) {
+		String[] items = exp.split("\\.");
+		if (items == null || items.length <= 1) {
+			throw new IllegalArgumentException(
+					"exp incorrect, format a.xx=b.xx");
+		}
+		String field = items[items.length - 1];
+		return new ReflectFieldGetter<T, V>(ClassUtils.getGetterMethod(clazz,
+				field));
+	}
+
+	/**
 	 * Like left join operation in sql.
 	 * 
 	 * @param listA
@@ -160,6 +228,30 @@ public class CollectionConvertUtils {
 			FieldGetter<A, K> fieldGetterA, List<B> listB,
 			FieldGetter<B, K> fieldGetterB, Mapper<B, A> mapper) {
 		return join0(listA, fieldGetterA, listB, fieldGetterB, mapper, true);
+	}
+
+	private static <A, B, K> JoinCheckResult<A> doJoinCheck(List<A> listA,
+			FieldGetter<A, K> fieldGetterA, List<B> listB,
+			FieldGetter<B, K> fieldGetterB, Mapper<B, A> mapper,
+			boolean leftJoin) {
+		if (listA == null || listB == null || fieldGetterA == null
+				|| mapper == null) {
+			throw new IllegalArgumentException("Paramter should not by null");
+		}
+		if (listA.size() == 0) {
+			return new JoinCheckResult<A>(true, Collections.<A> emptyList());
+		}
+		if (listB.size() == 0) {
+			if (leftJoin) {
+				return new JoinCheckResult<A>(true, new ArrayList<A>(listA));
+			} else {
+				return new JoinCheckResult<A>(true, Collections.<A> emptyList());
+			}
+		}
+		if (fieldGetterB == null) {
+			throw new IllegalArgumentException("Paramter should not by null");
+		}
+		return new JoinCheckResult<A>(false, null);
 	}
 
 	private static class JoinCheckResult<T> {
@@ -186,27 +278,6 @@ public class CollectionConvertUtils {
 
 	}
 
-	private static <A, B, K> JoinCheckResult<A> doJoinCheck(List<A> listA,
-			FieldGetter<A, K> fieldGetterA, List<B> listB,
-			FieldGetter<B, K> fieldGetterB, Mapper<B, A> mapper,
-			boolean leftJoin) {
-		if (listA == null || listB == null || fieldGetterA == null
-				|| fieldGetterB == null || mapper == null) {
-			throw new IllegalArgumentException("Paramter should not by null");
-		}
-		if (listA.size() == 0) {
-			return new JoinCheckResult<A>(true, Collections.<A> emptyList());
-		}
-		if (listB.size() == 0) {
-			if (leftJoin) {
-				return new JoinCheckResult<A>(true, new ArrayList<A>(listA));
-			} else {
-				return new JoinCheckResult<A>(true, Collections.<A> emptyList());
-			}
-		}
-		return new JoinCheckResult<A>(false, null);
-	}
-
 	private static <A, B, K> List<A> join0(List<A> listA,
 			FieldGetter<A, K> fieldGetterA, List<B> listB,
 			FieldGetter<B, K> fieldGetterB, Mapper<B, A> mapper,
@@ -229,4 +300,5 @@ public class CollectionConvertUtils {
 		}
 		return resultList;
 	}
+
 }

@@ -31,27 +31,36 @@ public class CollectionUtilsTest {
 
 	@Test
 	public void testInnerJoin() {
-		List<A> lista = new ArrayList<A>();
+		List<A> listA = new ArrayList<A>();
 		A a = new A();
 		a.setAid(1);
-		lista.add(a);
-		List<B> listb = new ArrayList<B>();
+		listA.add(a);
+		List<B> listB = new ArrayList<B>();
 		B b = new B();
 		b.setBid(1);
 		b.setBname("hah");
-		listb.add(b);
-		List<A> innerJoin = CollectionConvertUtils.innerJoin(lista,
+		listB.add(b);
+		List<A> innerJoin = CollectionConvertUtils.innerJoin(listA,
 				new FieldGetter<A, Integer>() {
 					@Override
 					public Integer get(A object) {
 						return object.getAid();
 					}
-				}, listb, new FieldGetter<B, Integer>() {
+				}, listB, new FieldGetter<B, Integer>() {
 					@Override
 					public Integer get(B object) {
 						return object.getBid();
 					}
 				}, new Mapper<B, A>() {
+					@Override
+					public A map(B from, A target) {
+						target.setBame(from.getBname());
+						return target;
+					}
+				});
+		Assert.assertEquals(b.getBname(), innerJoin.get(0).getBame());
+		innerJoin = CollectionConvertUtils.innerJoin(listA, listB,
+				"a.aid=b.bid", new Mapper<B, A>() {
 					@Override
 					public A map(B from, A target) {
 						target.setBame(from.getBname());
